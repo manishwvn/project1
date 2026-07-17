@@ -1,0 +1,12 @@
+.env
+backend/.venv/
+__pycache__/
+*.pyc
+
+# Xcode
+.DS_Store
+*/xcuserdata/
+*.xcuserstate
+DerivedData/
+ios/ChatApp/ChatApp.xcodeproj/xcuserdata/
+ios/ChatApp/ChatApp.xcodeproj/project.xcworkspace/xcuserdata/
