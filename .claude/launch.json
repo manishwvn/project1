@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "backend-dev",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd backend && uv run uvicorn main:app --reload --port 8000"],
+      "port": 8000
+    },
+    {
+      "name": "frontend-dev",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd frontend && ~/.bun/bin/bun run dev -- --port $PORT"],
+      "port": 5173
+    }
+  ]
+}

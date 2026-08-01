@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "mode": "auto",
+    "allow": [
+      "Bash(curl -s *)",
+      "Bash(lsof -ti:*)",
+      "Bash(find *)",
+      "Bash(gh repo *)",
+      "mcp__docs-langchain__search_docs_by_lang_chain"
+    ]
+  }
+}
