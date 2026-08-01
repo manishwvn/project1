@@ -1,9 +1,8 @@
 # Learning Log — Agentic AI Step by Step
 
-Goal: learn LangGraph, Langfuse, tool calls, memory, RAG — step by step —
-while building a naive iOS chat app as the front end. Backend LLM calls use
-Groq (free tier) and later OpenRouter, not Anthropic API (no budget for that).
-Claude Code is the dev tool writing all code.
+Goal: learn LangGraph, Langfuse, tool calls, memory, RAG — step by step.
+Backend LLM calls use Groq (free tier) and later OpenRouter, not Anthropic
+API (no budget for that). Claude Code is the dev tool writing all code.
 
 ## Step 1 — Bare backend, no agent logic yet
 
@@ -23,9 +22,8 @@ work."
 **Why uv:** fast, single tool for venv + dependency + Python version pinning.
 Avoids juggling pip/venv/pyenv separately.
 
-**Why FastAPI:** minimal boilerplate, async-friendly, will matter once
-tool-calling / streaming responses come in later steps. Also the natural
-counterpart to a SwiftUI client talking HTTP.
+**Why FastAPI:** minimal boilerplate, async-friendly, matters once
+tool-calling / streaming responses come in later steps.
 
 **Files:**
 - `backend/main.py` — the FastAPI app + `/chat` route
@@ -46,104 +44,63 @@ curl -X POST http://localhost:8000/chat \
 
 **Verified:** server boots, `/chat` returns a real Groq completion.
 
-## Step 2 — Bare SwiftUI iOS chat screen
+## Step 2 — LangGraph agent with tool calling
 
-**What:** `ios/ChatApp/` — Xcode project (SwiftUI, iOS App template), lives
-inside `project1` repo so backend and frontend version together. Single
-screen: text field, Send button, scrollable reply area. On Send, POSTs
-`{"message": "..."}` to `http://localhost:8000/chat`, decodes
-`{"reply": "..."}`, shows it.
+**What:** `backend/agent.py` — a LangGraph `StateGraph` agent replacing the
+plain Groq call in `/chat`. State is a `TypedDict` accumulating messages
+(`operator.add`). Two tools bound to the LLM: `calculator` (evaluates math
+expressions) and `get_weather` (OpenWeatherMap lookup). Graph: `chat` node
+calls the LLM, `tools` node executes any `tool_calls` it returns, a
+conditional edge (`should_continue`) loops back to `chat` if more tool calls
+are pending or ends otherwise.
 
-**Why:** simplest possible client to prove backend is reachable from a real
-app shell before layering any agent logic in. No chat history, no styling —
-just request/response wired up.
+**Why:** learn the core agent loop (LLM decision -> tool execution -> result
+fed back -> LLM decision again) before adding memory, RAG, or Langfuse
+tracing on top.
 
 **Files:**
-- `ios/ChatApp/ChatApp/ContentView.swift` — the whole UI + networking
-  (`ChatRequest`/`ChatResponse` Codable structs, `URLSession` POST call)
-- `ios/ChatApp/ChatApp.xcodeproj` — created via Xcode's New Project wizard
-  (can't be scripted cleanly from CLI)
+- `backend/agent.py` — `AgentState`, tool definitions, `create_agent()`
+- `backend/main.py` — imports `create_agent()`, wraps incoming message in
+  `HumanMessage`, invokes the compiled graph, extracts the last message's
+  content as the reply
+- `backend/pyproject.toml` — added `langgraph` dependency
 
-**How to run:** open `ChatApp.xcodeproj` in Xcode, run on iOS Simulator.
-Backend must be running (`uv run uvicorn main:app --port 8000 --reload` in
-`backend/`) — simulator can reach `localhost:8000` directly.
+**Verified:** `/chat` with `"2 + 2"` and `"10 * 5"` routes through the
+calculator tool; `"Tell me a joke"` returns a direct LLM response with no
+tool call.
 
-**Verified:** ran in Simulator with backend live — multi-turn conversation
-works end-to-end.
+## Step 3 — React frontend (web chat UI)
 
-**Polish pass (same step):** chat bubbles (blue = user, gray = assistant),
-auto-scroll to newest message, loading spinner while waiting on a reply,
-text field clears after send, Return key sends (`.onSubmit`), tap outside
-dismisses keyboard. Added basic markdown rendering — replies are split on
-` ``` ` fences; non-code segments go through
-`AttributedString(markdown:)` (bold etc.), code segments get monospaced
-font + dark background, mimicking how Messages/ChatGPT render model output.
+**What:** `frontend/` — a Vite + React + TypeScript app, package-managed and
+run with bun. Single `App.tsx` chat screen: text input, send button, message
+list rendered as bubbles (user right-aligned, agent left-aligned), calls
+`POST {VITE_API_URL}/chat` and appends the reply. `VITE_API_URL` defaults to
+`http://localhost:8000`, overridable via `frontend/.env.local`.
 
-**Simulator quirk (fixed):** typing into the Simulator via automated
-keystrokes kept triggering macOS's accent-picker popup and freezing input.
-Cause: Simulator's I/O → Keyboard → "Connect Hardware Keyboard" was on,
-which routes physical key events straight through and collides with
-synthetic ones. Turned it off — Simulator falls back to its on-screen
-keyboard, which takes normal taps reliably.
+**Why React (not React Native) first:** the near-term goal is a web-based
+way to interact with the agent. React Native matters once a real mobile app
+is wanted again, but that's a separate, later step — plain React + Vite is
+the fastest path to a working browser UI now.
 
-## Step 3 — Running on a physical iPhone (not just Simulator)
+**Why bun:** single fast tool for install + dev server, avoids
+npm/node_modules slowness for a small frontend.
 
-**What:** app now installs and runs on a real device over USB, talking to
-the backend over the LAN instead of `localhost`.
+**Backend change:** added `CORSMiddleware` in `backend/main.py` allowing
+`http://localhost:5173` so the Vite dev server can call `/chat` directly.
 
-**Changes needed:**
-- `ContentView.swift` — backend URL changed from `http://localhost:8000`
-  to `http://<mac-lan-ip>:8000` (phone isn't the same host as the Mac).
-- `backend/main.py` run command — `uvicorn` bound to `--host 0.0.0.0`
-  instead of the default `127.0.0.1`, so it accepts LAN connections, not
-  just local ones.
-- `Info.plist` — added `NSAppTransportSecurity` → `NSAllowsLocalNetworking`
-  (iOS blocks plain HTTP by default; this exempts local-network traffic)
-  and `NSLocalNetworkUsageDescription` (required prompt text for local
-  network access on-device).
-- Xcode signing — free Apple ID / Personal Team, no paid developer account
-  needed for local device testing (app just needs re-trusting every ~7 days).
-- Backend kept alive across Mac sleep/lock with
-  `caffeinate -i uv run uvicorn ...` — locking the screen alone never
-  kills a running process, only sleep does, and `caffeinate -i` prevents that.
+**Files:**
+- `frontend/src/App.tsx` — chat UI + fetch call to backend
+- `frontend/src/App.css` — chat layout/styling
+- `frontend/.env.local` (gitignored) — `VITE_API_URL` override
+- `backend/main.py` — CORS middleware added
 
-**Bugs hit and fixed, in order:**
-1. **Duplicate Info.plist build error** ("Multiple commands produce...") —
-   this project uses Xcode's newer file-system-synchronized groups, which
-   auto-includes every file in the folder as a build resource. Adding a
-   custom `Info.plist` file made Xcode both copy it as a resource *and*
-   process it as the app's Info.plist. Fixed with a
-   `PBXFileSystemSynchronizedBuildFileExceptionSet` excluding `Info.plist`
-   from resource copying.
-2. **Disk full** — `dyld_shared_cache_extract_dylibs failed`. First-time
-   device connection makes Xcode decompress the phone's whole system
-   library cache locally (needs ~5-8GB free temporarily) so it can
-   symbolicate crashes/breakpoints. Fixed by moving
-   `~/Library/Developer/Xcode/iOS DeviceSupport` to an external SSD and
-   symlinking it back — one-time extraction, cached permanently after,
-   only re-triggers on iOS version upgrades.
-3. **Missing `CFBundleIdentifier`** — turning off `GENERATE_INFOPLIST_FILE`
-   (to fix bug #1) also turned off Xcode's automatic injection of required
-   Info.plist keys (`CFBundleIdentifier`, `CFBundleExecutable`, etc.).
-   Install failed with a generic, unhelpful Xcode error — the real reason
-   only showed up via `xcrun devicectl device install app` on the CLI.
-   Fixed by adding those keys back manually, referencing the build
-   settings (`$(PRODUCT_BUNDLE_IDENTIFIER)` etc.) the same way Xcode's
-   auto-generated plist does.
-4. **Untrusted developer certificate** — free Apple ID app installs need a
-   manual one-time trust: Settings → General → VPN & Device Management →
-   select the cert → Trust.
-
-**Debugging note:** Xcode's toolbar status text ("Finished running...")
-was frequently stale/wrong throughout this — the Report Navigator
-(Cmd+9-equivalent icon) showing per-run Build/Launch logs, and
-`xcrun devicectl device info apps` / `device install app` from the
-terminal, were the only reliable ground truth.
-
-**Verified:** app installed and running on physical iPhone, reachable
-over WiFi to the Mac's backend.
+**Verified:** `bun install` + `bun dev`, sent "2 + 2" through the UI, agent
+replied "Result: 4" via the calculator tool — full browser -> FastAPI ->
+LangGraph agent round trip confirmed working.
 
 ## Next steps (not started)
-- Tool calls, memory, RAG, LangGraph orchestration, Langfuse tracing
-  — one at a time, each demoed through the iOS app before moving on
-- iOS work is secondary from here; agentic backend is the focus
+- Streaming responses
+- Conversation memory
+- RAG
+- Langfuse tracing
+- React Native app (once web UI + agent are further along)

@@ -2,11 +2,9 @@
 backend/.venv/
 __pycache__/
 *.pyc
-
-# Xcode
+reference_docs/
 .DS_Store
-*/xcuserdata/
-*.xcuserstate
-DerivedData/
-ios/ChatApp/ChatApp.xcodeproj/xcuserdata/
-ios/ChatApp/ChatApp.xcodeproj/project.xcworkspace/xcuserdata/
+frontend/node_modules/
+frontend/dist/
+frontend/.env.local
+.claude/settings.local.json

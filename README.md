@@ -1,8 +1,8 @@
 # project1 — Agentic AI, learned step by step
 
 A from-scratch build of an agentic AI stack (LangGraph, Langfuse, tool
-calling, memory, RAG) with a native iOS chat client as the front end.
-Backend LLM calls run on Groq's free tier — no paid API required.
+calling, memory, RAG). Backend LLM calls run on Groq's free tier — no paid
+API required.
 
 See [docs/LEARNING.md](docs/LEARNING.md) for the full build log: what was
 built at each step, why, and the bugs hit along the way.
@@ -10,8 +10,8 @@ built at each step, why, and the bugs hit along the way.
 ## Structure
 
 ```
-backend/   FastAPI + Groq — the agent backend
-ios/       SwiftUI chat client (Xcode project)
+backend/   FastAPI + Groq + LangGraph — the agent backend
+frontend/  React + Vite (TypeScript) — chat UI for the agent
 docs/      Build log / learning notes
 ```
 
@@ -23,27 +23,27 @@ uv run uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 Requires a `.env` file at the repo root with `GROQ_API_KEY=...` (gitignored,
-not included in this repo). `--host 0.0.0.0` is needed for the iOS app to
-reach it over the LAN when running on a physical device, not just the
-Simulator.
+not included in this repo).
 
-## iOS app
+## Frontend
 
-Open `ios/ChatApp/ChatApp.xcodeproj` in Xcode, select a Simulator or a
-connected iPhone as the run target, and run. The backend must already be
-running — see above.
+```
+cd frontend
+bun install
+bun dev
+```
 
-If running on a physical device, update the backend URL in
-`ios/ChatApp/ChatApp/ContentView.swift` to your Mac's LAN IP (Simulator can
-use `localhost` directly; a real device cannot).
+Opens at `http://localhost:5173`. Talks to the backend at
+`http://localhost:8000` by default — override with `VITE_API_URL` in
+`frontend/.env.local` if the backend runs on a different port.
 
 ## Status
 
-Backend: single `/chat` endpoint, no agent framework yet — plain
-request → LLM → response, on purpose (see docs/LEARNING.md Step 1).
+Backend: `/chat` endpoint backed by a LangGraph agent (`backend/agent.py`)
+with tool calling (calculator, weather) — see docs/LEARNING.md.
 
-iOS: bare-bones chat UI (bubbles, markdown rendering, auto-scroll),
-verified working on both Simulator and a physical iPhone.
+Frontend: React + Vite chat UI (`frontend/`) that calls `/chat` and renders
+the conversation.
 
-Next: tool calling, memory, RAG, LangGraph orchestration, Langfuse tracing
-— one concept at a time, each demoed through the iOS app.
+Next: streaming, conversation memory, RAG, Langfuse tracing. React Native
+app planned for later once the web UI and agent are further along.
