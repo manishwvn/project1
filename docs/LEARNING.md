@@ -98,8 +98,39 @@ npm/node_modules slowness for a small frontend.
 replied "Result: 4" via the calculator tool — full browser -> FastAPI ->
 LangGraph agent round trip confirmed working.
 
+## Step 4 — Streaming responses (token-by-token)
+
+**What:** `/chat/stream` endpoint (SSE) using `agent.astream()` with `version="v2"` and `stream_mode=["messages", "updates"]`.
+
+Backend streams two event types:
+- `token` events with LLM output chunks (one per generated token)
+- `progress` events with node execution updates (agent steps)
+
+Frontend reads the response stream using `ReadableStream` + `TextDecoder`, accumulates tokens, updates UI in real-time as each token arrives.
+
+**Why:** UX improvement — user sees output building token-by-token instead of waiting for full response. More responsive feel, better perceived performance.
+
+**Implementation:**
+- Backend (`backend/main.py`): Added `/chat/stream` endpoint with async generator yielding SSE events
+- Frontend (`frontend/src/App.tsx`): Modified `sendMessage()` to consume SSE stream with `res.body.getReader()` instead of `res.json()`
+
+**How it works:**
+1. LLM generates tokens sequentially
+2. Each token packaged as SSE event: `data: {"type": "token", "content": "token_text"}\n\n`
+3. Frontend reads bytes from stream, decodes, parses JSON per event
+4. Accumulates tokens in state, updates message bubble on each token
+5. Tool execution (calculator, weather) also streams results
+6. Stream closes when agent completes
+
+**Verified:** `/chat/stream` tested with:
+- Simple responses (joke)
+- Calculator tool calls (42 * 17 = 714)
+- Weather API calls (SF weather data)
+- Complex reasoning (apple math breakdown)
+
+Original `/chat` endpoint preserved for backward compatibility.
+
 ## Next steps (not started)
-- Streaming responses
 - Conversation memory
 - RAG
 - Langfuse tracing

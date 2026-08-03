@@ -39,11 +39,14 @@ Opens at `http://localhost:5173`. Talks to the backend at
 
 ## Status
 
-Backend: `/chat` endpoint backed by a LangGraph agent (`backend/agent.py`)
-with tool calling (calculator, weather) — see docs/LEARNING.md.
+Backend: Two endpoints:
+- `/chat` — blocking endpoint returns full response
+- `/chat/stream` — streaming endpoint (SSE) with token-by-token LLM output + tool execution tracking
 
-Frontend: React + Vite chat UI (`frontend/`) that calls `/chat` and renders
-the conversation.
+Both backed by a LangGraph agent (`backend/agent.py`) with tool calling (calculator, weather).
 
-Next: streaming, conversation memory, RAG, Langfuse tracing. React Native
-app planned for later once the web UI and agent are further along.
+Frontend: React + Vite chat UI (`frontend/`) that calls `/chat/stream` and displays tokens as they arrive.
+
+Completed: agent with tool calling, streaming responses (v2 format, `messages` + `updates` modes), weather + calculator tools.
+
+Next: conversation memory, RAG, Langfuse tracing. React Native app planned for later once the web UI and agent are further along.
