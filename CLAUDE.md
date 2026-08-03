@@ -109,9 +109,10 @@ Note: Global feature flag `tengu_quill_harbor` at account level forces "Accept E
 ## Next Steps
 - RAG (vector storage + semantic search for context window expansion)
 - Langfuse tracing (observability + debugging)
-- Thread naming/renaming (better UX than auto-generated "New conversation")
+- Thread renaming (currently auto-titled from first message, no manual rename)
 - Message search within threads
 - React Native app (mobile, after web is stable)
+- Fix duplicate `/threads` GET fetch race on initial mount (see App.tsx `initRef` guard—works but root cause of double StrictMode invoke not fully diagnosed)
 
 ## Dev Commands
 
@@ -131,6 +132,69 @@ curl -X POST http://localhost:8000/chat/stream \
   -H "Content-Type: application/json" \
   -d '{"message":"2+2"}'
 ```
+
+## Deployment
+
+**Live URLs:**
+- Frontend: https://manishwvn.github.io/project1/
+- Backend: https://project1-backend-821369184580.us-central1.run.app
+
+**Architecture:** Backend on Google Cloud Run (containerized, serverless, free tier). Frontend on GitHub Pages (static hosting from `gh-pages` branch).
+
+### Backend deploy (Cloud Run)
+
+Requires `backend/Dockerfile` (not committed to git history by default—recreate if missing: python:3.12-slim base, pip install deps directly, no `uv` in container since it's not preinstalled). Requires `backend/.env` locally for dev; Cloud Run needs vars passed explicitly via `--set-env-vars`, it does NOT read `.env`.
+
+```bash
+cd backend
+gcloud run deploy project1-backend \
+  --source . \
+  --region us-central1 \
+  --allow-unauthenticated \
+  --set-env-vars GROQ_API_KEY=<key>,OPENWEATHERMAP_API_KEY=<key>
+```
+
+CORS in `backend/main.py` must allow the GitHub Pages origin:
+```python
+allow_origins=["http://localhost:5173", "https://manishwvn.github.io"]
+```
+
+### Frontend deploy (GitHub Pages)
+
+`vite.config.ts` must set `base: '/project1/'` (repo name)—omitting this breaks all asset paths (blank page, 404s on JS/CSS) since Pages serves from a subpath, not domain root.
+
+Build with the production API URL baked in:
+```bash
+cd frontend
+bun install
+VITE_API_URL=https://project1-backend-821369184580.us-central1.run.app bunx vite build
+```
+
+Deploy only the built static files to `gh-pages`—never the whole repo (avoids submodule/node_modules corruption):
+```bash
+cd ..
+git checkout --orphan gh-pages-tmp
+git rm -rf . --quiet
+cp -r frontend/dist/* .
+git add index.html favicon.svg assets
+git commit -m "Deploy: <description>"
+git push origin gh-pages-tmp:gh-pages --force
+git checkout main
+git branch -D gh-pages-tmp
+```
+
+**Critical**: never `git add .` on the orphan branch—it will stage `frontend/` (source + node_modules) alongside the dist files. Add only the specific built files.
+
+**Critical**: any source edits (`backend/main.py`, `frontend/vite.config.ts`, etc.) made right before this branch dance must be committed to `main` BEFORE `git checkout --orphan`—switching branches discards uncommitted changes on return to main. This bit us twice during initial deploy.
+
+GitHub Pages settings (one-time): Settings → Pages → Branch: `gh-pages`, Path: `/ (root)`.
+
+### Post-deploy verification checklist
+- Load site fresh, check browser console for errors
+- Create thread, send message, confirm streaming renders token-by-token
+- Switch threads, confirm history loads correctly (proves DB persistence across the deployed backend)
+- Test mobile viewport (375px)—confirm no layout overflow
+- Check Network tab: all asset requests 200, correct `/project1/` prefix
 
 ## Key Decisions
 
