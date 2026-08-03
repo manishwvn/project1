@@ -8,9 +8,52 @@
 
 .header {
   padding: 16px;
+  border-bottom: 1px solid var(--border, #333);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.header-top {
   font-weight: 600;
   font-size: 18px;
-  border-bottom: 1px solid var(--border, #333);
+}
+
+.thread-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.thread-select {
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid #444;
+  background: #1a1a1a;
+  color: white;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.thread-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.new-thread-btn {
+  padding: 8px 14px;
+  border-radius: 6px;
+  border: none;
+  background: #16a34a;
+  color: white;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.new-thread-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .messages {
