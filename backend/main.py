@@ -63,6 +63,8 @@ def chat(request: ChatRequest, db: Session = Depends(get_db)) -> ChatResponse:
         db.commit()
 
     db.add(Message(thread_id=thread_id, role="user", content=request.message))
+    if db_thread.title == "New conversation":
+        db_thread.title = request.message[:40] + ("..." if len(request.message) > 40 else "")
     db.commit()
 
     messages_from_db = db.query(Message).filter(Message.thread_id == thread_id).order_by(Message.created_at).all()
@@ -97,6 +99,8 @@ async def chat_stream(request: ChatRequest, db: Session = Depends(get_db)):
         db.commit()
 
     db.add(Message(thread_id=thread_id, role="user", content=request.message))
+    if db_thread.title == "New conversation":
+        db_thread.title = request.message[:40] + ("..." if len(request.message) > 40 else "")
     db.commit()
 
     messages_from_db = db.query(Message).filter(Message.thread_id == thread_id).order_by(Message.created_at).all()
